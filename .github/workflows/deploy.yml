@@ -77,4 +77,3 @@ jobs:
 
       - name: Run Destroy Script
         run: bash ./scripts/destroy.sh
-
