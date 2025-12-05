@@ -1,0 +1,11 @@
+# Terraform sensitive files
+terraform.tfstate
+terraform.tfstate.backup
+.tfplan
+.terraform/
+
+
+# Python cache
+__pycache__/
+*.pyc
+
