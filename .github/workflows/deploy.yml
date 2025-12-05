@@ -1,10 +1,15 @@
-name: DevOps Deployment
+name: DevOps One-Click Deployment
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:   # Allows manual triggers (for destroy)
+  workflow_dispatch:  # Manual trigger for destroy
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
 jobs:
   # -----------------------------
@@ -13,7 +18,7 @@ jobs:
   deploy:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
       - name: Install Dependencies
@@ -21,20 +26,20 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y curl python3 python3-pip unzip wget git
           chmod +x ./scripts/*.sh
-          # Install Terraform 1.14.0
+          # Terraform 1.14.0
           TERRAFORM_VERSION=1.14.0
           wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
           unzip -o terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/
           terraform -version
-          # Install AWS CLI
+          # AWS CLI
           pip3 install awscli --upgrade
           aws --version
 
       - name: Run Deploy Script
         run: bash ./scripts/deploy.sh
 
-      - name: Upload Terraform folder
-        uses: actions/upload-artifact@v3
+      - name: Upload Terraform Folder
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-folder
           path: terraform/
@@ -46,7 +51,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
       - name: Download Terraform Folder
@@ -63,10 +68,10 @@ jobs:
   # -----------------------------
   destroy:
     needs: deploy
-    if: github.event_name == 'workflow_dispatch'   # Only run manually
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
       - name: Download Terraform Folder
@@ -77,6 +82,3 @@ jobs:
 
       - name: Run Destroy Script
         run: bash ./scripts/destroy.sh
-
-
-
