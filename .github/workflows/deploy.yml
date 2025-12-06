@@ -41,15 +41,6 @@ jobs:
       - name: Run Deploy Script
         run: bash ./scripts/deploy.sh
 
-      - name: Upload Terraform Folder + State
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-folder
-          path: |
-            terraform
-            terraform/terraform.tfstate
-            terraform/.terraform
-
   test:
     name: 🧪 Test Infrastructure
     needs: deploy
@@ -59,12 +50,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Terraform Folder
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-folder
-          path: terraform
-
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -73,38 +58,35 @@ jobs:
       - name: Install AWS CLI
         run: pip3 install awscli --upgrade
 
-      - name: Debug Terraform Folder (Optional)
-        run: ls -la terraform
-
-      - name: Prepare Test
+      - name: Run Test Script
         run: |
           cd terraform
+          # Initialize Terraform to read outputs
           terraform init -input=false
-          terraform output -raw alb_dns > alb-url.txt
 
-      - name: Run Test Script
-        run: bash ./scripts/test.sh $(cat terraform/alb-url.txt)
+          # Get ALB DNS from Terraform output
+          alb_url=$(terraform output -raw alb_dns)
+          echo "ALB URL: $alb_url"
+
+          # Run your test.sh script with ALB URL
+          bash ../scripts/test.sh $alb_url
 
   destroy:
     name: 💣 Destroy Infrastructure
     runs-on: ubuntu-22.04
     if: github.event_name == 'workflow_dispatch'  # Manual only
-    # Note: no 'needs: deploy', so deploy will not run
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Terraform Folder
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-folder
-          path: terraform
-
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Install AWS CLI
+        run: pip3 install awscli --upgrade
 
       - name: Run Destroy Script
         run: bash ./scripts/destroy.sh
