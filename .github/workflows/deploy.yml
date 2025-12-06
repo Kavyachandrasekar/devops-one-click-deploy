@@ -1,3 +1,6 @@
+ellame manual ah del panitan.....now 
+
+
 name: Terraform CI/CD
 
 on:
@@ -100,3 +103,6 @@ jobs:
 
       - name: Run Destroy Script
         run: bash ./scripts/destroy.sh
+
+
+
