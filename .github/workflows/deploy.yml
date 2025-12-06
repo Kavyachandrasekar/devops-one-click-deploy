@@ -67,8 +67,14 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
+      - name: Prepare Test
+        run: |
+          cd terraform
+          terraform init -input=false
+          terraform output -raw alb_dns > ../alb-url.txt
+
       - name: Run Test Script
-        run: bash ./scripts/test.sh
+        run: bash ./scripts/test.sh $(cat alb-url.txt)
 
 
   destroy:

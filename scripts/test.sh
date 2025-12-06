@@ -1,18 +1,15 @@
 #!/bin/bash
-set -e
+
+URL=$1
 
 echo "🧪 Running API Tests..."
+echo "➡️ Testing: $URL"
 
-# Get ALB DNS from Terraform output
-cd terraform
-ALB_URL=$(terraform output -raw alb_dns_name)
+CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$URL")
 
-echo "➡️ GET /"
-curl -s http://$ALB_URL/
-
-echo ""
-echo "➡️ GET /health"
-curl -s http://$ALB_URL/health
-
-echo ""
-echo "✅ API Test Completed!"
+if [[ "$CODE" -eq 200 ]]; then
+  echo "✅ API Test Passed"
+else
+  echo "❌ Failed! Expected 200 but got $CODE"
+  exit 3
+fi
