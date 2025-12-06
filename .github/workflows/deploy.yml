@@ -3,54 +3,55 @@ name: Terraform CI/CD
 on:
   push:
     branches: ["main"]
-  workflow_dispatch:   # Allows manual destroy trigger
+  workflow_dispatch:   # Allows manual trigger for destroy
 
 env:
   TERRAFORM_VERSION: "1.14.0"
+  AWS_DEFAULT_REGION: "ap-south-1"
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_DEFAULT_REGION: "ap-south-1"
 
 jobs:
 
   deploy:
     name: 🚀 Deploy Infrastructure
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Required Packages
+      - name: Install Packages
         run: |
           sudo apt-get update -y
           sudo apt-get install -y curl python3 python3-pip unzip wget git
           chmod +x scripts/*.sh
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-      - name: Verify Terraform Version
-        run: terraform -version
-
       - name: Install AWS CLI
         run: pip3 install awscli --upgrade
 
-      - name: Run Deploy Script
+      - name: Deploy Infrastructure
         run: bash ./scripts/deploy.sh
+
+      - name: Upload Terraform State
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state
+          path: terraform/terraform.tfstate
 
   test:
     name: 🧪 Test Infrastructure
     needs: deploy
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
@@ -58,29 +59,33 @@ jobs:
       - name: Install AWS CLI
         run: pip3 install awscli --upgrade
 
-      - name: Run Test Script
+      - name: Download Terraform State
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-state
+          path: terraform
+
+      - name: Run Tests
         run: |
           cd terraform
-          # Initialize Terraform to read outputs
           terraform init -input=false
-
-          # Get ALB DNS from Terraform output
-          alb_url=$(terraform output -raw alb_dns)
+          alb_url=$(terraform output -raw alb_dns || echo "")
+          if [ -z "$alb_url" ]; then
+            echo "❌ ALB DNS not found. Test cannot run."
+            exit 1
+          fi
           echo "ALB URL: $alb_url"
-
-          # Run your test.sh script with ALB URL
-          bash ../scripts/test.sh $alb_url
+          bash ../scripts/test.sh "$alb_url"
 
   destroy:
     name: 💣 Destroy Infrastructure
     runs-on: ubuntu-22.04
-    if: github.event_name == 'workflow_dispatch'  # Manual only
-
+    if: github.event_name == 'workflow_dispatch'  # Only manual trigger
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
@@ -88,5 +93,11 @@ jobs:
       - name: Install AWS CLI
         run: pip3 install awscli --upgrade
 
-      - name: Run Destroy Script
+      - name: Download Latest Terraform State
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-state
+          path: terraform
+
+      - name: Destroy Infrastructure
         run: bash ./scripts/destroy.sh
